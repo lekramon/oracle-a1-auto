@@ -1,4 +1,4 @@
-# Oracle Always Free A1 — criação automática (a cada 3 minutos)
+# Oracle Always Free A1 — criação automática (a cada 5 minutos)
 
 Configuração fixa: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Reutiliza a sub-rede pública da VCN `agents-vcn` e atribui IPv4 público.
 
@@ -45,20 +45,20 @@ Repositório → **Settings → Secrets and variables → Actions → New reposi
 
 ## 5. Executar o primeiro teste
 
-GitHub → **Actions → Oracle Free Tier A1 (3 min) → Run workflow**.
+GitHub → **Actions → Oracle Free Tier A1 (5 min) → Run workflow**.
 
 - `RESULTADO: unavailable`: a Oracle segue sem capacidade. O cron continuará tentando.
 - `RESULTADO: created`: solicitação de VM aceita. O agendamento se desativará automaticamente e você deverá conferir em Compute → Instances.
 - `RESULTADO: already_exists`: uma A1 já existe no compartimento; o agendamento também se desativará.
 - **Erro**: abra o log para corrigir credenciais, permissões ou imagem. Não é tratado como falta de capacidade.
 
-Se a etapa de desativação falhar por permissão, abra **Settings → Actions → General → Workflow permissions** e confirme que o workflow pode solicitar `Actions: write`. Você também pode desativar manualmente em **Actions → Oracle Free Tier A1 (3 min) → ... → Disable workflow**.
+Se a etapa de desativação falhar por permissão, abra **Settings → Actions → General → Workflow permissions** e confirme que o workflow pode solicitar `Actions: write`. Você também pode desativar manualmente em **Actions → Oracle Free Tier A1 (5 min) → ... → Disable workflow**.
 
 ## 6. Observações de segurança e custos
 
 - Conta Oracle Free Tier: os 2 OCPUs, 12 GB e o disco de 50 GB se enquadram nos limites do Always Free **se não houver outros recursos consumindo a mesma franquia**. Não altera o tipo da conta.
-- O GitHub executa a tarefa a cada **3 minutos nominais**, mas o agendamento pode atrasar ou pular execuções.
-- GitHub Actions de repositórios **públicos** com runners padrão são gratuitos. Repositórios privados têm uma cota mensal e um workflow a cada 3 minutos pode ultrapassá-la.
+- O GitHub executa a tarefa a cada **5 minutos nominais**, mas o agendamento pode atrasar ou pular execuções.
+- GitHub Actions de repositórios **públicos** com runners padrão são gratuitos. Repositórios privados têm uma cota mensal e um workflow a cada 5 minutos pode ultrapassá-la.
 - Repositório público significa que **código e logs são públicos**, embora Secrets fiquem protegidos. Não habilite execução de código não confiável nesse workflow.
 - Depois da criação, restrinja a regra de entrada TCP/22 ao seu IP e faça backups externos. A A1 gratuita pode ser recuperada pela Oracle se considerada ociosa.
 - A automação desabilita o workflow quando a API aceita o lançamento. Você ainda precisa confirmar que a VM chega a `Running` no Console.

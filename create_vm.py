@@ -16,7 +16,7 @@ import oci
 
 SHAPE = "VM.Standard.A1.Flex"
 REGION = "sa-saopaulo-1"
-INSTANCE_NAME = "hermes-agent"
+INSTANCE_NAME = "oracle-a1-free"
 PRIMARY = (2, 12)
 FALLBACK = (1, 6)
 BOOT_GB = 50
@@ -138,7 +138,7 @@ def main() -> None:
                 metadata={"ssh_authorized_keys": ssh_public_key},
                 freeform_tags={
                     "automation": "oracle-a1-claim",
-                    "purpose": "hermes",
+                    "purpose": "oracle-a1-free",
                     "profile": f"{ocpus}ocpu-{ram_gb}gb",
                 },
             )

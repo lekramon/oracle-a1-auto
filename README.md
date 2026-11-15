@@ -57,7 +57,7 @@ Se a etapa de desativação falhar por permissão, abra **Settings → Actions �
 ## 6. Observações de segurança e custos
 
 - Conta Oracle Free Tier: os 2 OCPUs, 12 GB e o disco de 50 GB se enquadram nos limites do Always Free **se não houver outros recursos consumindo a mesma franquia**. Não altera o tipo da conta.
-- O GitHub executa a tarefa a cada **5 minutos nominais**, mas o agendamento pode atrasar ou pular execuções.
+- O GitHub agenda a tarefa a cada **5 minutos nominais**, nos minutos `02, 07, 12, 17, 22, 27, 32, 37, 42, 47, 52 e 57` de cada hora. O agendamento pode atrasar ou pular execuções.
 - GitHub Actions de repositórios **públicos** com runners padrão são gratuitos. Repositórios privados têm uma cota mensal e um workflow a cada 5 minutos pode ultrapassá-la.
 - Repositório público significa que **código e logs são públicos**, embora Secrets fiquem protegidos. Não habilite execução de código não confiável nesse workflow.
 - Depois da criação, restrinja a regra de entrada TCP/22 ao seu IP e faça backups externos. A A1 gratuita pode ser recuperada pela Oracle se considerada ociosa.

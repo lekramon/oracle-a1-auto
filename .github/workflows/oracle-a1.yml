@@ -2,7 +2,7 @@ name: Oracle Free Tier A1 (5 min)
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/3 * * * *'
   workflow_dispatch:
 
 permissions:

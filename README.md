@@ -1,6 +1,6 @@
 # Oracle Always Free A1 — criação automática (a cada 5 minutos)
 
-Configuração fixa: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Reutiliza a sub-rede pública da VCN `agents-vcn` e atribui IPv4 público.
+Configuração preferida: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Se faltar capacidade, tenta **1 OCPU e 6 GB RAM** como fallback, sem usar outro shape. Reutiliza a sub-rede pública da VCN `agents-vcn` e atribui IPv4 público.
 
 ## 1. Conta Oracle: criar uma chave de API NOVA
 
@@ -47,7 +47,7 @@ Repositório → **Settings → Secrets and variables → Actions → New reposi
 
 GitHub → **Actions → Oracle Free Tier A1 (5 min) → Run workflow**.
 
-- `RESULTADO: unavailable`: a Oracle segue sem capacidade. O cron continuará tentando.
+- `RESULTADO: unavailable`: a Oracle segue sem capacidade para 2/12 e 1/6. O cron continuará tentando.
 - `RESULTADO: created`: solicitação de VM aceita. O agendamento se desativará automaticamente e você deverá conferir em Compute → Instances.
 - `RESULTADO: already_exists`: uma A1 já existe no compartimento; o agendamento também se desativará.
 - **Erro**: abra o log para corrigir credenciais, permissões ou imagem. Não é tratado como falta de capacidade.
@@ -65,5 +65,5 @@ Se a etapa de desativação falhar por permissão, abra **Settings → Actions �
 
 ## 7. Personalizações
 
-O programa usa deliberadamente Ubuntu 26.04, A1.Flex, 2 OCPUs e 12 GB **fixos**; não tenta formatos pagos, não reduz os recursos e não faz upgrade de conta. Se quiser outro nome da VM, altere a constante `INSTANCE_NAME` em `create_vm.py`.
+O programa tenta primeiro Ubuntu 26.04, A1.Flex, 2 OCPUs e 12 GB; se não houver capacidade em todos os ADs, tenta 1 OCPU e 6 GB. Não tenta formatos pagos, não usa outro shape e não faz upgrade de conta. Se quiser outro nome da VM, altere a constante `INSTANCE_NAME` em `create_vm.py`.
 

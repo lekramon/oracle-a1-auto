@@ -6,7 +6,7 @@ Configuração preferida: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, *
 
 Na Oracle Cloud Console:
 
-1. Perfil (ícone superior direito) → **My Profile** → **API Keys** → **Add API Key**.
+1. Perfil (ícone superior direito) → **My Profile** → **Token and keys** → **Add API Key**.
 2. Escolha **Generate API Key Pair**, baixe a **private key** e adicione a public key à Oracle.
 3. Copie os valores do arquivo de configuração exibido: `user`, `tenancy`, `fingerprint`, `region`. A região deve ser `sa-saopaulo-1`.
 4. Guarde a chave privada da API com segurança. **Não confunda** com a chave SSH da instância! Não envie chaves privadas por chat, nem para o repositório.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tenta criar uma única OCI A1.Flex Always Free (2 OCPU / 12 GB).
+"""Tenta criar uma única OCI A1.Flex Always Free, preferindo 2 OCPU/12 GB e usando 1 OCPU/6 GB como fallback.
 
 Executado por GitHub Actions a cada 5 minutos. Em falta de capacidade, sai
 normalmente e tenta no próximo agendamento. Falhas de configuração não são
@@ -17,8 +17,8 @@ import oci
 SHAPE = "VM.Standard.A1.Flex"
 REGION = "sa-saopaulo-1"
 INSTANCE_NAME = "hermes-agent"
-OCPUS = 2
-RAM_GB = 12
+PRIMARY = (2, 12)
+FALLBACK = (1, 6)
 BOOT_GB = 50
 
 
@@ -106,50 +106,67 @@ def main() -> None:
     if not ads:
         raise RuntimeError("Nenhum Availability Domain listado para o compartimento")
 
-    for ad in ads:
-        print(f"Tentando {SHAPE} / {OCPUS} OCPU / {RAM_GB} GB em {ad.name}", flush=True)
-        details = oci.core.models.LaunchInstanceDetails(
-            availability_domain=ad.name,
-            compartment_id=compartment,
-            display_name=INSTANCE_NAME,
-            shape=SHAPE,
-            shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(
-                ocpus=OCPUS,
-                memory_in_gbs=RAM_GB,
-            ),
-            source_details=oci.core.models.InstanceSourceViaImageDetails(
-                source_type="image",
-                image_id=image.id,
-                boot_volume_size_in_gbs=BOOT_GB,
-            ),
-            create_vnic_details=oci.core.models.CreateVnicDetails(
-                subnet_id=subnet,
-                assign_public_ip=True,
-            ),
-            metadata={"ssh_authorized_keys": ssh_public_key},
-            freeform_tags={"automation": "oracle-a1-claim", "purpose": "hermes"},
-        )
+    # Esgota a configuração preferida em todos os ADs antes do fallback.
+    for ocpus, ram_gb, label in [
+        (PRIMARY[0], PRIMARY[1], "preferida"),
+        (FALLBACK[0], FALLBACK[1], "fallback"),
+    ]:
+        for ad in ads:
+            print(
+                f"Tentando {SHAPE} / {ocpus} OCPU / {ram_gb} GB "
+                f"({label}) em {ad.name}",
+                flush=True,
+            )
+            details = oci.core.models.LaunchInstanceDetails(
+                availability_domain=ad.name,
+                compartment_id=compartment,
+                display_name=INSTANCE_NAME,
+                shape=SHAPE,
+                shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(
+                    ocpus=ocpus,
+                    memory_in_gbs=ram_gb,
+                ),
+                source_details=oci.core.models.InstanceSourceViaImageDetails(
+                    source_type="image",
+                    image_id=image.id,
+                    boot_volume_size_in_gbs=BOOT_GB,
+                ),
+                create_vnic_details=oci.core.models.CreateVnicDetails(
+                    subnet_id=subnet,
+                    assign_public_ip=True,
+                ),
+                metadata={"ssh_authorized_keys": ssh_public_key},
+                freeform_tags={
+                    "automation": "oracle-a1-claim",
+                    "purpose": "hermes",
+                    "profile": f"{ocpus}ocpu-{ram_gb}gb",
+                },
+            )
 
-        # Token por janela de 5 minutos: evita criar duas VMs se um evento
-        # for disparado duas vezes na mesma janela de tempo.
-        bucket = int(time.time() // 300)
-        token = hashlib.sha256(
-            f"{compartment}:{subnet}:{INSTANCE_NAME}:{ad.name}:{bucket}".encode()
-        ).hexdigest()[:48]
-        try:
-            created = compute.launch_instance(details, opc_retry_token=token).data
-        except oci.exceptions.ServiceError as exc:
-            if capacity_error(exc):
-                print(f"Sem capacidade em {ad.name}. Tentara novamente no proximo ciclo.", flush=True)
-                continue
-            # Não esconda 401/403, limites, erros de rede ou parâmetros.
-            print(f"Erro OCI: HTTP {exc.status}, codigo {exc.code}: {exc.message}", file=sys.stderr)
-            raise
+            # Token por janela de 5 minutos e configuração.
+            bucket = int(time.time() // 300)
+            token = hashlib.sha256(
+                f"{compartment}:{subnet}:{INSTANCE_NAME}:{ad.name}:{ocpus}:{ram_gb}:{bucket}".encode()
+            ).hexdigest()[:48]
+            try:
+                created = compute.launch_instance(details, opc_retry_token=token).data
+            except oci.exceptions.ServiceError as exc:
+                if capacity_error(exc):
+                    print(
+                        f"Sem capacidade para {ocpus} OCPU/{ram_gb} GB em {ad.name}.",
+                        flush=True,
+                    )
+                    continue
+                print(
+                    f"Erro OCI: HTTP {exc.status}, codigo {exc.code}: {exc.message}",
+                    file=sys.stderr,
+                )
+                raise
 
-        print(f"INSTANCIA SOLICITADA! OCID: {created.id}")
-        print(f"Estado inicial: {created.lifecycle_state}. Confira o status no painel OCI.")
-        report_status("created")
-        return
+            print(f"INSTANCIA SOLICITADA! OCID: {created.id}")
+            print(f"Estado inicial: {created.lifecycle_state}. Confira o status no painel OCI.")
+            report_status("created")
+            return
 
     report_status("unavailable")
 

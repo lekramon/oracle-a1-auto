@@ -1,0 +1,48 @@
+name: Oracle Free Tier A1 (5 min)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: oracle-a1-claim
+  cancel-in-progress: false
+
+jobs:
+  criar-vps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+      OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_COMPARTMENT_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+      OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+      OCI_SUBNET_OCID: ${{ secrets.OCI_SUBNET_OCID }}
+      OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Dependencias
+        run: pip install -r requirements.txt
+      - name: Tentar criar Oracle A1 Free Tier
+        id: tentativa
+        run: python create_vm.py
+      - name: Desativar verificacoes quando houver A1
+        if: ${{ steps.tentativa.outputs.status == 'created' || steps.tentativa.outputs.status == 'already_exists' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/oracle-a1.yml/disable"
+          echo 'Agendamento desativado. Confira a instância Oracle em Compute > Instances.'
+

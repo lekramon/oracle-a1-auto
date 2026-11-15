@@ -2,8 +2,8 @@ name: Oracle Free Tier A1 (5 min)
 
 on:
   schedule:
-    # Revalidado para registrar novamente o agendamento de 5 minutos.
-    - cron: '*/5 * * * *'
+    # A cada 5 minutos, deslocado para evitar os minutos mais concorridos.
+    - cron: '2/5 * * * *'
   workflow_dispatch:
 
 permissions:

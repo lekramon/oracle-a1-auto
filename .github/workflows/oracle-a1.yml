@@ -46,3 +46,8 @@ jobs:
           gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/oracle-a1.yml/disable"
           echo 'Agendamento desativado. Confira a instância Oracle em Compute > Instances.'
 
+      - name: Marcar falta de capacidade como falha
+        if: ${{ always() && steps.tentativa.outputs.status == 'unavailable' }}
+        run: |
+          echo 'A Oracle não aceitou a criação por falta de capacidade. O próximo agendamento tentará novamente.'
+          exit 1

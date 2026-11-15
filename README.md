@@ -1,6 +1,6 @@
 # Oracle Always Free A1 — criação automática (a cada 5 minutos)
 
-Configuração preferida: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Se faltar capacidade, tenta **1 OCPU e 6 GB RAM** como fallback, sem usar outro shape. Reutiliza a sub-rede pública da VCN `agents-vcn` e atribui IPv4 público.
+Configuração preferida: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Se faltar capacidade, tenta **1 OCPU e 6 GB RAM** como fallback, sem usar outro shape. Reutiliza a VCN e a sub-rede pública existentes e atribui IPv4 público.
 
 ## 1. Conta Oracle: criar uma chave de API NOVA
 
@@ -13,7 +13,7 @@ Na Oracle Cloud Console:
 
 ## 2. Encontrar o OCID da sub-rede
 
-**Networking → Virtual Cloud Networks → agents-vcn → Subnets → public subnet-agents-vcn**. Copie o campo **OCID** dessa sub-rede (não é o OCID da VCN).
+**Networking → Virtual Cloud Networks → VCN existente → Subnets → sub-rede pública existente**. Copie o campo **OCID** dessa sub-rede (não é o OCID da VCN).
 
 A chave SSH pública que você baixou durante a criação da VM anterior contém uma linha iniciando em `ssh-rsa` (ou `ssh-ed25519`). Ela será usada como segredo `OCI_SSH_PUBLIC_KEY`. **Nunca** coloque a chave SSH privada no GitHub.
 

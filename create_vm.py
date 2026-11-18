@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Tenta criar uma única OCI A1.Flex Always Free, preferindo 2 OCPU/12 GB e usando 1 OCPU/6 GB como fallback.
+"""Cria ou amplia uma única OCI A1.Flex Always Free.
 
-Executado por GitHub Actions a cada 5 minutos. Em falta de capacidade, sai
-normalmente e tenta no próximo agendamento. Falhas de configuração não são
-silenciadas. Nunca seleciona shapes ou sistemas com licença pagos.
+Quando a instância fallback de 1 OCPU/6 GB já existe, tenta ampliá-la para
+2 OCPUs/12 GB. Nunca seleciona shapes ou sistemas com licença pagos.
 """
 
 import hashlib
@@ -46,6 +45,69 @@ def capacity_error(exc: oci.exceptions.ServiceError) -> bool:
     )
 
 
+def instance_size(instance) -> tuple[float, float]:
+    shape_config = instance.shape_config
+    return float(shape_config.ocpus or 0), float(shape_config.memory_in_gbs or 0)
+
+
+def wait_for_state(compute, instance_id: str, state: str) -> None:
+    oci.wait_until(
+        compute,
+        compute.get_instance(instance_id),
+        "lifecycle_state",
+        state,
+        max_wait_seconds=600,
+    )
+
+
+def try_upgrade(compute, instance) -> None:
+    ocpus, ram_gb = instance_size(instance)
+    if ocpus >= PRIMARY[0] and ram_gb >= PRIMARY[1]:
+        print(f"Instancia ja esta na configuracao desejada: {ocpus:g} OCPU/{ram_gb:g} GB.")
+        report_status("upgraded")
+        return
+
+    if instance.lifecycle_state not in {"RUNNING", "STOPPED"}:
+        print(
+            f"Instancia em {instance.lifecycle_state}; aguardando a proxima execucao para ampliar."
+        )
+        report_status("pending")
+        return
+
+    was_running = instance.lifecycle_state == "RUNNING"
+    if was_running:
+        print("Parando a instancia temporariamente para tentar 2 OCPUs/12 GB.", flush=True)
+        compute.instance_action(instance.id, "STOP")
+        wait_for_state(compute, instance.id, "STOPPED")
+
+    upgraded = False
+    error = None
+    try:
+        print("Tentando ampliar a instancia para 2 OCPUs/12 GB.", flush=True)
+        details = oci.core.models.UpdateInstanceDetails(
+            shape_config=oci.core.models.UpdateInstanceShapeConfigDetails(
+                ocpus=PRIMARY[0],
+                memory_in_gbs=PRIMARY[1],
+            )
+        )
+        compute.update_instance(instance.id, details)
+        upgraded = True
+    except oci.exceptions.ServiceError as exc:
+        if capacity_error(exc):
+            print("Sem capacidade para ampliar para 2 OCPUs/12 GB.", flush=True)
+        else:
+            error = exc
+    finally:
+        if was_running:
+            print("Religando a instancia.", flush=True)
+            compute.instance_action(instance.id, "START")
+            wait_for_state(compute, instance.id, "RUNNING")
+
+    if error:
+        raise error
+    report_status("upgraded" if upgraded else "upgrade_unavailable")
+
+
 def main() -> None:
     compartment = required("OCI_COMPARTMENT_OCID")
     subnet = required("OCI_SUBNET_OCID")
@@ -72,13 +134,14 @@ def main() -> None:
     existing = [
         i for i in instances
         if i.shape == SHAPE
+        and i.display_name == INSTANCE_NAME
         and i.lifecycle_state not in {"TERMINATED", "TERMINATING"}
         # A launch can briefly be PROVISIONING/STARTING; it still counts and
         # must prevent a second request in a later scheduled run.
     ]
     if existing:
         print(f"A1 ja existe no compartimento: {existing[0].display_name} ({existing[0].lifecycle_state}).")
-        report_status("already_exists")
+        try_upgrade(compute, existing[0])
         return
 
     # Busca a versão estável mais recente de Ubuntu 26.04 compativel com A1.
@@ -165,7 +228,7 @@ def main() -> None:
 
             print(f"INSTANCIA SOLICITADA! OCID: {created.id}")
             print(f"Estado inicial: {created.lifecycle_state}. Confira o status no painel OCI.")
-            report_status("created")
+            report_status("created_primary" if (ocpus, ram_gb) == PRIMARY else "created_fallback")
             return
 
     report_status("unavailable")

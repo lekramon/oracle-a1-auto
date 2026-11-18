@@ -1,4 +1,4 @@
-# Oracle Always Free A1 — criação automática (a cada 5 minutos)
+# Oracle Always Free A1 — criação e upgrade automáticos
 
 Configuração preferida: **VM.Standard.A1.Flex**, **2 OCPUs**, **12 GB RAM**, **50 GB**, **Ubuntu 26.04 full ARM64**, **São Paulo**. Se faltar capacidade, tenta **1 OCPU e 6 GB RAM** como fallback, sem usar outro shape. Reutiliza a VCN e a sub-rede pública existentes e atribui IPv4 público.
 
@@ -38,30 +38,32 @@ Repositório → **Settings → Secrets and variables → Actions → New reposi
 | `OCI_TENANCY_OCID` | `tenancy=` no arquivo da API; como seu compartimento é root, é também o compartment OCID |
 | `OCI_FINGERPRINT` | `fingerprint=` no arquivo da API |
 | `OCI_PRIVATE_KEY` | Conteúdo COMPLETO da chave privada da **API** (`-----BEGIN PRIVATE KEY-----` até `-----END PRIVATE KEY-----`) |
-| `OCI_SUBNET_OCID` | OCID da sub-rede **pública** de `agents-vcn` |
+| `OCI_SUBNET_OCID` | OCID da sub-rede **pública** existente |
 | `OCI_SSH_PUBLIC_KEY` | Uma linha inteira do arquivo da chave SSH **pública** que você baixou na criação da instância |
 
 **Importante:** Não escreva esses valores no código ou em mensagens públicas. GitHub Secrets não aparecem como texto no repositório.
 
 ## 5. Executar o primeiro teste
 
-GitHub → **Actions → Oracle Free Tier A1 (5 min) → Run workflow**.
+GitHub → **Actions → Oracle Free Tier A1 (upgrade hourly) → Run workflow**.
 
-- `RESULTADO: unavailable`: a Oracle segue sem capacidade para 2/12 e 1/6. O cron continuará tentando.
-- `RESULTADO: created`: solicitação de VM aceita. O agendamento se desativará automaticamente e você deverá conferir em Compute → Instances.
-- `RESULTADO: already_exists`: uma A1 já existe no compartimento; o agendamento também se desativará.
+- `RESULTADO: created_primary`: a VM foi criada diretamente com 2/12; o agendamento se desativa.
+- `RESULTADO: created_fallback`: a VM foi criada com 1/6; o cron horário continuará tentando ampliá-la.
+- `RESULTADO: upgrade_unavailable`: ainda não houve capacidade para 2/12; a VM é religada e haverá nova tentativa.
+- `RESULTADO: upgraded`: a instância atingiu 2/12; o agendamento se desativa.
+- `RESULTADO: pending`: a instância estava em transição; a próxima execução tentará novamente.
 - **Erro**: abra o log para corrigir credenciais, permissões ou imagem. Não é tratado como falta de capacidade.
 
-Se a etapa de desativação falhar por permissão, abra **Settings → Actions → General → Workflow permissions** e confirme que o workflow pode solicitar `Actions: write`. Você também pode desativar manualmente em **Actions → Oracle Free Tier A1 (5 min) → ... → Disable workflow**.
+Se a etapa de desativação falhar por permissão, abra **Settings → Actions → General → Workflow permissions** e confirme que o workflow pode solicitar `Actions: write`. Você também pode desativar manualmente em **Actions → Oracle Free Tier A1 (upgrade hourly) → ... → Disable workflow**.
 
 ## 6. Observações de segurança e custos
 
 - Conta Oracle Free Tier: os 2 OCPUs, 12 GB e o disco de 50 GB se enquadram nos limites do Always Free **se não houver outros recursos consumindo a mesma franquia**. Não altera o tipo da conta.
-- O GitHub agenda a tarefa a cada **5 minutos nominais**, nos minutos `02, 07, 12, 17, 22, 27, 32, 37, 42, 47, 52 e 57` de cada hora. O agendamento pode atrasar ou pular execuções.
-- GitHub Actions de repositórios **públicos** com runners padrão são gratuitos. Repositórios privados têm uma cota mensal e um workflow a cada 5 minutos pode ultrapassá-la.
+- O GitHub agenda uma tentativa de upgrade no minuto `17` de cada hora. O agendamento pode atrasar ou pular execuções.
+- GitHub Actions de repositórios **públicos** com runners padrão são gratuitos. Repositórios privados têm uma cota mensal.
 - Repositório público significa que **código e logs são públicos**, embora Secrets fiquem protegidos. Não habilite execução de código não confiável nesse workflow.
 - Depois da criação, restrinja a regra de entrada TCP/22 ao seu IP e faça backups externos. A A1 gratuita pode ser recuperada pela Oracle se considerada ociosa.
-- A automação desabilita o workflow quando a API aceita o lançamento. Você ainda precisa confirmar que a VM chega a `Running` no Console.
+- Para ampliar uma instância 1/6, a automação a para temporariamente, tenta 2/12 e a religa mesmo se faltar capacidade. Ao atingir 2/12, desabilita o workflow.
 
 ## 7. Personalizações
 

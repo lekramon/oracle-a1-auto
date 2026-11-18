@@ -1,9 +1,9 @@
-name: Oracle Free Tier A1 (5 min)
+name: Oracle Free Tier A1 (upgrade hourly)
 
 on:
   schedule:
-    # A cada 5 minutos, deslocado para evitar os minutos mais concorridos.
-    - cron: '2/5 * * * *'
+    # Uma vez por hora, fora do minuto zero para reduzir atrasos do scheduler.
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   criar-vps:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 15
     env:
       OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
       OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
@@ -36,19 +36,19 @@ jobs:
           cache: pip
       - name: Dependencias
         run: pip install -r requirements.txt
-      - name: Tentar criar Oracle A1 Free Tier
+      - name: Criar ou tentar ampliar Oracle A1 Free Tier
         id: tentativa
         run: python create_vm.py
-      - name: Desativar verificacoes quando houver A1
-        if: ${{ steps.tentativa.outputs.status == 'created' || steps.tentativa.outputs.status == 'already_exists' }}
+      - name: Desativar verificacoes ao atingir 2 OCPUs e 12 GB
+        if: ${{ steps.tentativa.outputs.status == 'created_primary' || steps.tentativa.outputs.status == 'upgraded' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/oracle-a1.yml/disable"
-          echo 'Agendamento desativado. Confira a instância Oracle em Compute > Instances.'
+          echo 'Configuração 2 OCPUs/12 GB atingida. Agendamento desativado.'
 
       - name: Marcar falta de capacidade como falha
-        if: ${{ always() && steps.tentativa.outputs.status == 'unavailable' }}
+        if: ${{ always() && (steps.tentativa.outputs.status == 'unavailable' || steps.tentativa.outputs.status == 'upgrade_unavailable') }}
         run: |
-          echo 'A Oracle não aceitou a criação por falta de capacidade. O próximo agendamento tentará novamente.'
+          echo 'A Oracle não aceitou a configuração 2 OCPUs/12 GB. A próxima execução horária tentará novamente.'
           exit 1
